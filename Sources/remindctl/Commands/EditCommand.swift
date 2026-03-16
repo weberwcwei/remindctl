@@ -24,9 +24,16 @@ enum EditCommand {
               help: "none|low|medium|high",
               parsing: .singleValue
             ),
+            .make(
+              label: "repeat",
+              names: [.short("r"), .long("repeat")],
+              help: "daily|weekly|biweekly|monthly|yearly|every N days/weeks/months",
+              parsing: .singleValue
+            ),
           ],
           flags: [
             .make(label: "clearDue", names: [.long("clear-due")], help: "Clear due date"),
+            .make(label: "noRepeat", names: [.long("no-repeat")], help: "Remove recurrence"),
             .make(label: "complete", names: [.long("complete")], help: "Mark completed"),
             .make(label: "incomplete", names: [.long("incomplete")], help: "Mark incomplete"),
           ]
@@ -37,6 +44,8 @@ enum EditCommand {
         "remindctl edit 4A83 --due tomorrow",
         "remindctl edit 2 --priority high --notes \"Call before noon\"",
         "remindctl edit 3 --clear-due",
+        "remindctl edit 1 --repeat weekly",
+        "remindctl edit 2 --no-repeat",
       ]
     ) { values, runtime in
       guard let input = values.argument(0) else {
@@ -71,6 +80,17 @@ enum EditCommand {
         priority = try CommandHelpers.parsePriority(priorityValue)
       }
 
+      var recurrenceUpdate: RecurrenceRule??
+      if let repeatValue = values.option("repeat") {
+        recurrenceUpdate = try CommandHelpers.parseRecurrence(repeatValue)
+      }
+      if values.flag("noRepeat") {
+        if recurrenceUpdate != nil {
+          throw RemindCoreError.operationFailed("Use either --repeat or --no-repeat, not both")
+        }
+        recurrenceUpdate = .some(nil)
+      }
+
       let completeFlag = values.flag("complete")
       let incompleteFlag = values.flag("incomplete")
       if completeFlag && incompleteFlag {
@@ -78,7 +98,9 @@ enum EditCommand {
       }
       let isCompleted: Bool? = completeFlag ? true : (incompleteFlag ? false : nil)
 
-      if title == nil && listName == nil && notes == nil && dueUpdate == nil && priority == nil && isCompleted == nil {
+      if title == nil && listName == nil && notes == nil && dueUpdate == nil && priority == nil && isCompleted == nil
+        && recurrenceUpdate == nil
+      {
         throw RemindCoreError.operationFailed("No changes specified")
       }
 
@@ -88,7 +110,8 @@ enum EditCommand {
         dueDate: dueUpdate,
         priority: priority,
         listName: listName,
-        isCompleted: isCompleted
+        isCompleted: isCompleted,
+        recurrenceRule: recurrenceUpdate
       )
 
       let updated = try await store.updateReminder(id: reminder.id, update: update)

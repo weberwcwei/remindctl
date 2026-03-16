@@ -24,6 +24,12 @@ enum AddCommand {
               help: "none|low|medium|high",
               parsing: .singleValue
             ),
+            .make(
+              label: "repeat",
+              names: [.short("r"), .long("repeat")],
+              help: "daily|weekly|biweekly|monthly|yearly|every N days/weeks/months",
+              parsing: .singleValue
+            ),
           ]
         )
       ),
@@ -31,6 +37,7 @@ enum AddCommand {
         "remindctl add \"Buy milk\"",
         "remindctl add --title \"Call mom\" --list Personal --due tomorrow",
         "remindctl add \"Review docs\" --priority high",
+        "remindctl add \"Take vitamins\" --due tomorrow --repeat daily",
       ]
     ) { values, runtime in
       let titleOption = values.option("title")
@@ -59,6 +66,8 @@ enum AddCommand {
 
       let dueDate = try dueValue.map(CommandHelpers.parseDueDate)
       let priority = try priorityValue.map(CommandHelpers.parsePriority) ?? .none
+      let repeatValue = values.option("repeat")
+      let recurrenceRule = try repeatValue.map(CommandHelpers.parseRecurrence)
 
       let store = RemindersStore()
       try await store.requestAccess()
@@ -73,7 +82,7 @@ enum AddCommand {
         throw RemindCoreError.operationFailed("No default list found. Specify --list.")
       }
 
-      let draft = ReminderDraft(title: title, notes: notes, dueDate: dueDate, priority: priority)
+      let draft = ReminderDraft(title: title, notes: notes, dueDate: dueDate, priority: priority, recurrenceRule: recurrenceRule)
       let reminder = try await store.createReminder(draft, listName: targetList)
       OutputRenderer.printReminder(reminder, format: runtime.outputFormat)
     }
