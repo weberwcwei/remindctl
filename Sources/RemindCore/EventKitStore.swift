@@ -95,6 +95,10 @@ public actor RemindersStore {
 
   public func createReminder(_ draft: ReminderDraft, listName: String) async throws -> ReminderItem {
     let calendar = try calendar(named: listName)
+
+    // Remove completed reminders with the same title to prevent iCloud/EventKit conflicts
+    try await removeCompletedDuplicates(title: draft.title, in: [calendar])
+
     let reminder = EKReminder(eventStore: eventStore)
     reminder.title = draft.title
     reminder.notes = draft.notes
@@ -291,6 +295,34 @@ public actor RemindersStore {
     @unknown default: return nil
     }
     return RecurrenceRule(frequency: frequency, interval: ekRule.interval)
+  }
+
+  private func removeCompletedDuplicates(title: String, in calendars: [EKCalendar]) async throws {
+    let normalizedTitle = title.lowercased().trimmingCharacters(in: .whitespaces)
+
+    // Extract IDs inside callback to avoid sending non-Sendable EKReminder across isolation
+    let duplicateIDs = await withCheckedContinuation {
+      (continuation: CheckedContinuation<[String], Never>) in
+      let predicate = eventStore.predicateForReminders(in: calendars)
+      eventStore.fetchReminders(matching: predicate) { reminders in
+        let ids = (reminders ?? []).compactMap { reminder -> String? in
+          guard reminder.isCompleted,
+            (reminder.title ?? "").lowercased().trimmingCharacters(in: .whitespaces)
+              == normalizedTitle
+          else { return nil }
+          return reminder.calendarItemIdentifier
+        }
+        continuation.resume(returning: ids)
+      }
+    }
+
+    for id in duplicateIDs {
+      let reminder = try reminder(withID: id)
+      try eventStore.remove(reminder, commit: false)
+    }
+    if !duplicateIDs.isEmpty {
+      try eventStore.commit()
+    }
   }
 
   private func applyRecurrence(_ rule: RecurrenceRule?, to reminder: EKReminder) {
