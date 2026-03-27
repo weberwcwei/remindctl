@@ -46,10 +46,15 @@ enum CommandHelpers {
         }
         let unit = String(match.2)
         let freq: RecurrenceFrequency
-        if unit.hasPrefix("day") { freq = .daily }
-        else if unit.hasPrefix("week") { freq = .weekly }
-        else if unit.hasPrefix("month") { freq = .monthly }
-        else { freq = .yearly }
+        if unit.hasPrefix("day") {
+          freq = .daily
+        } else if unit.hasPrefix("week") {
+          freq = .weekly
+        } else if unit.hasPrefix("month") {
+          freq = .monthly
+        } else {
+          freq = .yearly
+        }
         return RecurrenceRule(frequency: freq, interval: n)
       }
       throw RemindCoreError.operationFailed(

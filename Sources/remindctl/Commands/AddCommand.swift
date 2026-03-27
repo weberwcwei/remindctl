@@ -11,7 +11,8 @@ enum AddCommand {
       signature: CommandSignatures.withRuntimeFlags(
         CommandSignature(
           arguments: [
-            .make(label: "title", help: "Reminder title", isOptional: true)
+            .make(label: "titleOrList", help: "Reminder title (or list name if second arg given)", isOptional: true),
+            .make(label: "titleWhenList", help: "Reminder title when first arg is a list name", isOptional: true),
           ],
           options: [
             .make(label: "title", names: [.long("title")], help: "Reminder title", parsing: .singleValue),
@@ -35,18 +36,40 @@ enum AddCommand {
       ),
       usageExamples: [
         "remindctl add \"Buy milk\"",
+        "remindctl add \"Personal\" \"Buy milk\"",
         "remindctl add --title \"Call mom\" --list Personal --due tomorrow",
         "remindctl add \"Review docs\" --priority high",
         "remindctl add \"Take vitamins\" --due tomorrow --repeat daily",
       ]
     ) { values, runtime in
       let titleOption = values.option("title")
-      let titleArg = values.argument(0)
-      if titleOption != nil && titleArg != nil {
+      let firstArg = values.argument(0)
+      let secondArg = values.argument(1)
+
+      // Two positional args: first is list name, second is title
+      // One positional arg: it's the title
+      // --title flag: explicit title
+      let positionalTitle: String?
+      var positionalList: String? = nil
+
+      if let secondArg {
+        // remindctl add "ListName" "Title"
+        positionalList = firstArg
+        positionalTitle = secondArg
+      } else {
+        positionalTitle = firstArg
+      }
+
+      if titleOption != nil && positionalTitle != nil {
         throw RemindCoreError.operationFailed("Provide title either as argument or via --title")
       }
 
-      var title = titleOption ?? titleArg
+      let listOption = values.option("list")
+      if listOption != nil && positionalList != nil {
+        throw RemindCoreError.operationFailed("Provide list either as first positional argument or via --list")
+      }
+
+      var title = titleOption ?? positionalTitle
       if title == nil {
         if runtime.noInput || !Console.isTTY {
           throw RemindCoreError.operationFailed("Missing title. Provide it as an argument or via --title.")
@@ -59,7 +82,7 @@ enum AddCommand {
         throw RemindCoreError.operationFailed("Missing title.")
       }
 
-      let listName = values.option("list")
+      let listName = listOption ?? positionalList
       let notes = values.option("notes")
       let dueValue = values.option("due")
       let priorityValue = values.option("priority")
@@ -82,7 +105,10 @@ enum AddCommand {
         throw RemindCoreError.operationFailed("No default list found. Specify --list.")
       }
 
-      let draft = ReminderDraft(title: title, notes: notes, dueDate: dueDate, priority: priority, recurrenceRule: recurrenceRule)
+      let draft = ReminderDraft(
+        title: title, notes: notes, dueDate: dueDate,
+        priority: priority, recurrenceRule: recurrenceRule
+      )
       let reminder = try await store.createReminder(draft, listName: targetList)
       OutputRenderer.printReminder(reminder, format: runtime.outputFormat)
     }
