@@ -117,6 +117,13 @@ public actor RemindersStore {
   public func updateReminder(id: String, update: ReminderUpdate) async throws -> ReminderItem {
     let reminder = try reminder(withID: id)
 
+    // Moving to a different list requires copy-and-delete (EventKit error -3002 on direct calendar change)
+    if let listName = update.listName,
+      listName != reminder.calendar.title
+    {
+      return try await moveReminder(reminder, to: listName, applying: update)
+    }
+
     if let title = update.title {
       reminder.title = title
     }
@@ -133,9 +140,6 @@ public actor RemindersStore {
     if let priority = update.priority {
       reminder.priority = priority.eventKitValue
     }
-    if let listName = update.listName {
-      reminder.calendar = try calendar(named: listName)
-    }
     if let isCompleted = update.isCompleted {
       reminder.isCompleted = isCompleted
     }
@@ -147,6 +151,44 @@ public actor RemindersStore {
     try eventStore.save(reminder, commit: true)
 
     return item(from: reminder)
+  }
+
+  private func moveReminder(
+    _ source: EKReminder, to listName: String, applying update: ReminderUpdate
+  ) async throws -> ReminderItem {
+    let targetCalendar = try calendar(named: listName)
+
+    let newReminder = EKReminder(eventStore: eventStore)
+    newReminder.title = update.title ?? source.title
+    newReminder.notes = update.notes ?? source.notes
+    newReminder.calendar = targetCalendar
+    newReminder.priority = update.priority?.eventKitValue ?? source.priority
+    newReminder.isCompleted = update.isCompleted ?? source.isCompleted
+
+    // Due date
+    if let dueDateUpdate = update.dueDate {
+      if let dueDate = dueDateUpdate {
+        newReminder.dueDateComponents = calendarComponents(from: dueDate)
+      }
+      // else: .some(nil) means clear due date — leave nil
+    } else {
+      newReminder.dueDateComponents = source.dueDateComponents
+    }
+
+    // Recurrence
+    if let recurrenceUpdate = update.recurrenceRule {
+      applyRecurrence(recurrenceUpdate, to: newReminder)
+    } else if let existingRules = source.recurrenceRules {
+      for rule in existingRules {
+        newReminder.addRecurrenceRule(rule)
+      }
+    }
+
+    try eventStore.save(newReminder, commit: false)
+    try eventStore.remove(source, commit: false)
+    try eventStore.commit()
+
+    return item(from: newReminder)
   }
 
   public func completeReminders(ids: [String]) async throws -> [ReminderItem] {
