@@ -25,6 +25,7 @@ enum ListCommand {
             .make(label: "delete", names: [.short("d"), .long("delete")], help: "Delete the list"),
             .make(label: "create", names: [.long("create")], help: "Create list if missing"),
             .make(label: "force", names: [.short("f"), .long("force")], help: "Skip confirmation prompts"),
+            .make(label: "includeCompleted", names: [.short("c"), .long("include-completed")], help: "Include completed reminders"),
           ]
         )
       ),
@@ -34,6 +35,7 @@ enum ListCommand {
         "remindctl list Work --rename Office",
         "remindctl list Work --delete",
         "remindctl list Projects --create",
+        "remindctl list Work --include-completed",
       ]
     ) { values, runtime in
       let name = values.argument(0)
@@ -81,7 +83,9 @@ enum ListCommand {
         }
 
         let reminders = try await store.reminders(in: name)
-        OutputRenderer.printReminders(reminders, format: runtime.outputFormat)
+        let includeCompleted = values.flag("includeCompleted")
+        let filtered = includeCompleted ? reminders : reminders.filter { !$0.isCompleted }
+        OutputRenderer.printReminders(filtered, format: runtime.outputFormat)
         return
       }
 

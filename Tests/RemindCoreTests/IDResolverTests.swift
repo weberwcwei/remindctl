@@ -29,6 +29,17 @@ struct IDResolverTests {
         listID: "list1",
         listName: "Work"
       ),
+      ReminderItem(
+        id: "abcd9999",
+        title: "Third",
+        notes: nil,
+        isCompleted: false,
+        completionDate: nil,
+        priority: .none,
+        dueDate: Date(timeIntervalSince1970: 1_700_000_200),
+        listID: "list1",
+        listName: "Work"
+      ),
     ]
   }
 
@@ -40,8 +51,15 @@ struct IDResolverTests {
 
   @Test("Resolve by prefix")
   func resolvePrefix() throws {
-    let resolved = try IDResolver.resolve(["abcd"], from: sampleReminders())
+    let resolved = try IDResolver.resolve(["abcd1"], from: sampleReminders())
     #expect(resolved.first?.title == "First")
+  }
+
+  @Test("Ambiguous prefix shows titles")
+  func ambiguousPrefix() {
+    #expect(throws: (any Error).self) {
+      _ = try IDResolver.resolve(["abcd"], from: sampleReminders())
+    }
   }
 
   @Test("Reject short prefix")

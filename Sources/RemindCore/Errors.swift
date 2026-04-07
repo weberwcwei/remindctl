@@ -30,7 +30,8 @@ public enum RemindCoreError: LocalizedError, Sendable, Equatable {
     case .reminderNotFound(let id):
       return "Reminder not found: \"\(id)\"."
     case .ambiguousIdentifier(let input, let matches):
-      return "Identifier \"\(input)\" matches multiple reminders: \(matches.joined(separator: ", "))."
+      let list = matches.map { "  \($0)" }.joined(separator: "\n")
+      return "Identifier \"\(input)\" matches multiple reminders:\n\(list)\nUse a longer prefix to disambiguate."
     case .invalidIdentifier(let input):
       return "Invalid identifier: \"\(input)\"."
     case .invalidDate(let input):

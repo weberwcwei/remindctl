@@ -10,7 +10,7 @@ struct ErrorsTests {
     #expect(RemindCoreError.writeOnlyAccess.localizedDescription.contains("write-only"))
     #expect(RemindCoreError.listNotFound("Work").localizedDescription.contains("Work"))
     #expect(RemindCoreError.reminderNotFound("abc").localizedDescription.contains("abc"))
-    #expect(RemindCoreError.ambiguousIdentifier("a", matches: ["1", "2"]).localizedDescription.contains("matches"))
+    #expect(RemindCoreError.ambiguousIdentifier("a", matches: ["ABCD1234 First", "ABCE5678 Second"]).localizedDescription.contains("disambiguate"))
     #expect(RemindCoreError.invalidIdentifier("x").localizedDescription.contains("Invalid identifier"))
     #expect(RemindCoreError.invalidDate("bad").localizedDescription.contains("Invalid date"))
     #expect(RemindCoreError.unsupported("nope").localizedDescription.contains("nope"))

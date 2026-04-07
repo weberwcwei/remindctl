@@ -29,7 +29,7 @@ public enum IDResolver {
         throw RemindCoreError.reminderNotFound(trimmed)
       }
       if matches.count > 1 {
-        throw RemindCoreError.ambiguousIdentifier(trimmed, matches: matches.map { $0.id })
+        throw RemindCoreError.ambiguousIdentifier(trimmed, matches: matches.map { "\(String($0.id.prefix(8)).uppercased()) \($0.title)" })
       }
       if let match = matches.first {
         resolved.append(match)
