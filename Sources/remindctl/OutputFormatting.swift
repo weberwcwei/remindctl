@@ -51,7 +51,7 @@ enum OutputRenderer {
     switch format {
     case .standard:
       let due = reminder.dueDate.map { DateParsing.formatDisplay($0) } ?? "no due date"
-      let recur = reminder.recurrenceRule.map { " 🔄 \($0.displayString)" } ?? ""
+      let recur = (!reminder.isCompleted && reminder.recurrenceRule != nil) ? " 🔄 \(reminder.recurrenceRule!.displayString)" : ""
       let shortID = String(reminder.id.prefix(8)).uppercased()
       Swift.print("✓ [\(shortID)] \(reminder.title) [\(reminder.listName)] — \(due)\(recur)")
     case .plain:
